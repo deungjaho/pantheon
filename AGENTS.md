@@ -74,7 +74,7 @@ go test -race -count=1 -timeout 180s ./...
   - **Hydra**（`-hydra-url`）：通过 Hydra HTTP API 模型路由。禁用时 `hydra.models`/`hydra.health` 返回 `hydra not configured`
   - **Argus**：workspace 级浏览器能力 — 尚未集成
   - **Auditor**（`-auditor`）：全局审计器分析运行历史。禁用时 `auditor.*` RPC 返回 `auditor not configured`
-  - **Mnemos**：语义记忆 — 尚未集成；审计器记忆候选暂存本地 SQLite
+  - **Mnemos**（`-mnemos-url`）：语义记忆 auto-ingest。run complete 后异步将 run 摘要 ingest 到 Mnemos。禁用时跳过（run complete 不 ingest）
 - 预算强制（默认 8h 自动停止）、同根因熔断器（3 次）、风险分级验证（R0-R3）已实现
 - 消息总线推送层（方案 B）已实现；拉取式 cursor RPC 仍是事实源和兜底
 - 无 TUI、Web UI 或生产部署

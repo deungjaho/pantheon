@@ -117,6 +117,14 @@ type Service struct {
 	// auto-modify anything; findings require human acceptance.
 	Auditor *auditor.Auditor
 
+	// Mnemos is the memory service for auto-ingest of completed runs.
+	// May be nil (disabled — run complete is not ingested). When set, a
+	// best-effort, asynchronous ingest is fired on every run that
+	// transitions to completed (R0/R1 auto-accept, run.approve, or the
+	// run.verify approval path). Ingest failures are logged to stderr and
+	// never block run completion.
+	Mnemos MnemosIngester
+
 	// Version info for initialize.
 	ServerName    string
 	ServerVersion string
@@ -133,6 +141,14 @@ type BeaconDiscoverer interface {
 type HydraGateway interface {
 	ListModels(ctx context.Context) ([]hydra.Model, error)
 	Healthz(ctx context.Context) error
+}
+
+// MnemosIngester is the consumer-side interface for the Mnemos memory
+// service. Implementations call Mnemos's HTTP API. Ingest is best-effort
+// and asynchronous from the caller's perspective — the run is already
+// completed in the store before ingest is attempted.
+type MnemosIngester interface {
+	Ingest(ctx context.Context, text string, metadata map[string]string) error
 }
 
 // InboxProjector projects messages to inbox/outbox files (C-004).
@@ -655,6 +671,10 @@ func (svc *Service) handleRunVerify(ctx context.Context, params json.RawMessage)
 		if err != nil {
 			return nil, err
 		}
+		// Auto-ingest to Mnemos (best-effort, async). The run is already
+		// completed in the store; ingest failure does not block completion.
+		task, _ := svc.Store.GetTaskByRun(ctx, p.RunID)
+		svc.ingestCompletedRun(p.RunID, run.ProjectID, domain.ResultApproved, task)
 		return &RunVerifyResult{
 			RunID:       p.RunID,
 			State:       finalState,
@@ -777,6 +797,12 @@ func (svc *Service) handleRunVerify(ctx context.Context, params json.RawMessage)
 	} else {
 		effResult = domain.ResultFailed
 	}
+	// Auto-ingest to Mnemos on PASS (completed). FAIL goes to failed and
+	// is not ingested. Best-effort, async — the run is already completed
+	// in the store; ingest failure does not block completion.
+	if p.Verdict == VerdictPass {
+		svc.ingestCompletedRun(p.RunID, run.ProjectID, effResult, task)
+	}
 	return &RunVerifyResult{
 		RunID:       p.RunID,
 		State:       finalState,
@@ -826,6 +852,45 @@ func (svc *Service) publishApprovalRequest(ctx context.Context, runID string, ta
 	}
 }
 
+// ingestCompletedRun fires a best-effort, asynchronous Mnemos ingest for a
+// run that just transitioned to completed. It does NOT block the caller —
+// the run is already completed in the store. If svc.Mnemos is nil this is
+// a no-op (Mnemos disabled). Ingest failures are logged to stderr.
+//
+// runID is the completed run; projectID is run.ProjectID; resultState is
+// the result_state set by the transition (accepted/approved). task is the
+// run's task (may be nil — objective and risk_level fall back to empty).
+func (svc *Service) ingestCompletedRun(runID, projectID string, resultState domain.ResultState, task *domain.Task) {
+	if svc.Mnemos == nil {
+		return
+	}
+	objective := ""
+	risk := domain.RiskLevel("")
+	taskID := ""
+	if task != nil {
+		objective = task.Objective
+		risk = task.RiskLevel
+		taskID = task.TaskID
+	}
+	text := fmt.Sprintf("Run %s completed. Objective: %s. Result: %s. Risk: %s.",
+		runID, objective, string(resultState), string(risk))
+	metadata := map[string]string{
+		"run_id":     runID,
+		"project_id": projectID,
+		"task_id":    taskID,
+		"source":     "pantheon",
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := svc.Mnemos.Ingest(ctx, text, metadata); err != nil {
+			// Best-effort: log and continue, don't block run completion.
+			// The run is already completed in the store.
+			fmt.Fprintf(os.Stderr, "pantheon: mnemos ingest failed for run %s: %v\n", runID, err)
+		}
+	}()
+}
+
 // handleRunApprove is the human-approval method for high-risk (R2/R3) runs
 // that passed verification but require human sign-off before transitioning
 // to completed (risk-graded verification). The run must be in the verifying
@@ -865,6 +930,10 @@ func (svc *Service) handleRunApprove(ctx context.Context, params json.RawMessage
 	if err != nil {
 		return nil, err
 	}
+	// Auto-ingest to Mnemos (best-effort, async). The run is already
+	// completed in the store; ingest failure does not block completion.
+	task, _ := svc.Store.GetTaskByRun(ctx, p.RunID)
+	svc.ingestCompletedRun(p.RunID, run.ProjectID, domain.ResultApproved, task)
 	return &RunApproveResult{
 		RunID:       p.RunID,
 		State:       finalState,

@@ -36,6 +36,7 @@ import (
 	"github.com/tangtszho/pantheon/internal/checkpoint"
 	"github.com/tangtszho/pantheon/internal/domain"
 	"github.com/tangtszho/pantheon/internal/hydra"
+	"github.com/tangtszho/pantheon/internal/mnemos"
 	"github.com/tangtszho/pantheon/internal/notify"
 	"github.com/tangtszho/pantheon/internal/push"
 	"github.com/tangtszho/pantheon/internal/rpc"
@@ -63,6 +64,7 @@ func main() {
 		hydraKey     string
 		pushSocket   string
 		auditorOn    bool
+		mnemosURL    string
 	)
 	flag.StringVar(&dbPath, "db", defaultDBPath(), "SQLite store path")
 	flag.StringVar(&worktrees, "worktrees", defaultWorktreesDir(), "worktree base directory")
@@ -80,6 +82,7 @@ func main() {
 	flag.StringVar(&hydraKey, "hydra-key", "", "Hydra API key (optional, sent as Bearer token)")
 	flag.StringVar(&pushSocket, "push-socket", "", "Unix socket path for the message bus push server (empty = disabled, pull-based polling only)")
 	flag.BoolVar(&auditorOn, "auditor", false, "enable the Global Auditor (Phase 4) for periodic run-history analysis")
+	flag.StringVar(&mnemosURL, "mnemos-url", "", "Mnemos memory service base URL (empty = disabled)")
 	flag.Parse()
 
 	// Pantheon never writes logs to stdout (that channel is JSON-RPC).
@@ -187,6 +190,16 @@ func main() {
 		}, log.Default())
 		svc.Auditor = aud
 		log.Printf("pantheond: global auditor enabled")
+	}
+
+	// Optional Mnemos integration: semantic memory auto-ingest. When
+	// -mnemos-url is set, completed runs (R0/R1 auto-accept, run.approve,
+	// or the run.verify approval path) are asynchronously ingested to
+	// Mnemos as best-effort memory entries. When empty, the integration is
+	// disabled and run completion does not trigger ingest.
+	if mnemosURL != "" {
+		svc.Mnemos = mnemos.NewClient(mnemosURL)
+		log.Printf("pantheond: mnemos auto-ingest enabled (url=%s)", mnemosURL)
 	}
 
 	srv := rpc.NewServer(os.Stdout)
