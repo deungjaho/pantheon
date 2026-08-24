@@ -1,0 +1,15 @@
+[Unit]
+Description=Pantheon wake-loop timer (event-driven fallback)
+
+[Timer]
+# OnBootSec: start 30s after boot to let pantheond initialize.
+OnBootSec=30s
+# OnUnitInactiveSec: trigger wake-poll 60s after the last one finished.
+# This is the fallback poll interval — the daemon's internal loop
+# (5s default) is the primary event-driven mechanism.
+OnUnitInactiveSec=60s
+# AccuracySec: allow 5s jitter to avoid thundering herd.
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

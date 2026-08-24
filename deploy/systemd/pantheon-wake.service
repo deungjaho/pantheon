@@ -1,0 +1,11 @@
+[Unit]
+Description=Pantheon wake-loop one-shot poll
+After=pantheond.service
+
+[Service]
+Type=oneshot
+# PollOnce: connect to the daemon socket and trigger a single wake poll.
+# This is the timer-driven fallback for event-driven wake when the
+# daemon's internal loop is not running.
+ExecStart=%h/.local/bin/pantheon wake-poll
+Environment=PANTHEON_HOME=%h/.local/share/pantheon

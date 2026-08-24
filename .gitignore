@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Devin local config (machine-specific, not project state)
+.devin/config.local.json
+
+# build artifacts
+/pantheon
+/pantheond
+*.test
+
+# editor
+*.swp
+*~
+
+# runtime session logs (agent tee output, reproducible, not durable evidence)
+docs/**/*-session.log
+
+# concierge operational scripts (managed in dotfile, not part of pantheon-core)
+/concierge/

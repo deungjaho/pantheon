@@ -1,0 +1,14 @@
+[Unit]
+Description=Concierge inbox watcher — launches Concierge agent when inbox items arrive
+After=pantheond.service
+
+[Service]
+Type=simple
+ExecStart={{HOME}}/.local/bin/concierge-watch
+Restart=always
+RestartSec=5
+Environment=HOME={{HOME}}
+Environment=PATH={{HOME}}/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target

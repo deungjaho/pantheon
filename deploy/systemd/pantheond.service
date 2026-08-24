@@ -1,0 +1,14 @@
+[Unit]
+Description=Pantheon daemon (event-driven wake loop)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/pantheond -socket %h/.local/share/pantheon/pantheond.sock -wake
+Restart=on-failure
+RestartSec=5
+# Environment
+Environment=PANTHEON_HOME=%h/.local/share/pantheon
+
+[Install]
+WantedBy=default.target

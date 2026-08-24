@@ -1,0 +1,39 @@
+{
+  "name": "pantheon",
+  "version": "0.1.0-alpha",
+  "description": "Conductor control plane for the Olympus agent-workspace system",
+  "components": [
+    {
+      "name": "pantheond",
+      "type": "daemon",
+      "binary": "cmd/pantheond",
+      "socket": "${PANTHEON_HOME}/pantheond.sock",
+      "systemd": "deploy/systemd/pantheond.service"
+    },
+    {
+      "name": "pantheon-cli",
+      "type": "cli",
+      "binary": "cmd/pantheon"
+    },
+    {
+      "name": "wake-timer",
+      "type": "timer",
+      "systemd": "deploy/systemd/pantheon-wake.timer"
+    },
+    {
+      "name": "push-server",
+      "type": "optional-daemon",
+      "socket": "${PANTHEON_HOME}/pantheond-push.sock"
+    }
+  ],
+  "integrations": [
+    {"name": "beacon", "optional": true, "description": "Agent discovery"},
+    {"name": "hydra", "optional": true, "description": "Model routing"},
+    {"name": "argus", "optional": true, "description": "Browser control"},
+    {"name": "auditor", "optional": true, "description": "Global audit"}
+  ],
+  "dependencies": {
+    "go": ">=1.21",
+    "sqlite3": ">=3.35"
+  }
+}
