@@ -864,6 +864,9 @@ func (svc *Service) ingestCompletedRun(runID, projectID string, resultState doma
 	if svc.Mnemos == nil {
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	objective := ""
 	risk := domain.RiskLevel("")
 	taskID := ""
@@ -872,18 +875,41 @@ func (svc *Service) ingestCompletedRun(runID, projectID string, resultState doma
 		risk = task.RiskLevel
 		taskID = task.TaskID
 	}
-	text := fmt.Sprintf("Run %s completed. Objective: %s. Result: %s. Risk: %s.",
-		runID, objective, string(resultState), string(risk))
+
+	// Enrich with project name and agent info for better memory extraction.
+	projectName := ""
+	if proj, err := svc.Store.GetProject(ctx, projectID); err == nil && proj != nil {
+		projectName = proj.Name
+	}
+
+	agentRuntime := ""
+	if agent, err := svc.Store.GetAgentByRun(ctx, runID); err == nil && agent != nil {
+		agentRuntime = string(agent.Runtime)
+	}
+
+	// Build a richer text that Mnemos's LLM pipeline can extract facts from.
+	// The pipeline expects conversational/content text, not telegraphic logs.
+	text := fmt.Sprintf(
+		"Pantheon orchestration run completed in project %q (repo: %s). "+
+			"Run ID: %s. Agent runtime: %s. "+
+			"Objective: %s. Risk level: %s. "+
+			"Result: %s (verifier accepted). "+
+			"The agent executed the task and the run transitioned to completed state.",
+		projectName, projectName, runID, agentRuntime,
+		objective, string(risk), string(resultState))
+
 	metadata := map[string]string{
 		"run_id":     runID,
 		"project_id": projectID,
+		"project":    projectName,
 		"task_id":    taskID,
+		"runtime":    agentRuntime,
 		"source":     "pantheon",
 	}
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if err := svc.Mnemos.Ingest(ctx, text, metadata); err != nil {
+		ictx, icancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer icancel()
+		if err := svc.Mnemos.Ingest(ictx, text, metadata); err != nil {
 			// Best-effort: log and continue, don't block run completion.
 			// The run is already completed in the store.
 			fmt.Fprintf(os.Stderr, "pantheon: mnemos ingest failed for run %s: %v\n", runID, err)
