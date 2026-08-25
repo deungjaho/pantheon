@@ -1,6 +1,6 @@
 # Pantheon
 
-可组合的 agent 工作区编排器。Pantheon 是控制平面：注册工作区、任务、运行和 agent；驱动运行时适配器；维护只追加事件日志加 SQLite 注册表投影作为唯一事实源。
+Agent run 注册与事件追踪系统。Pantheon 注册工作区、任务、运行和 agent；驱动运行时适配器；维护只追加事件日志加 SQLite 注册表投影作为唯一事实源。
 
 ## Pantheon 是什么
 
