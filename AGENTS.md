@@ -9,7 +9,7 @@ Pantheon 是 Conductor 控制平面：注册工作区、任务、运行和 agent
 - 不是 agent 运行时（Devin/Claude Code/Codex 是运行时）
 - 不是模型网关（Hydra 是）
 - 不是浏览器工具（Argus 是）
-- 不是记忆服务（Mnemos 是）
+- 不是记忆服务（Mnemos 曾是，现已搁置）
 - 不是状态/通知渲染器（Beacon 是）
 - 不是远程入口（Iris 是）
 - 不是 Kubernetes/Temporal/Airflow 式通用工作流引擎
@@ -74,7 +74,7 @@ go test -race -count=1 -timeout 180s ./...
   - **Hydra**（`-hydra-url`）：通过 Hydra HTTP API 模型路由。禁用时 `hydra.models`/`hydra.health` 返回 `hydra not configured`
   - **Argus**：workspace 级浏览器能力 — 尚未集成
   - **Auditor**（`-auditor`）：全局审计器分析运行历史。禁用时 `auditor.*` RPC 返回 `auditor not configured`
-  - **Mnemos**（`-mnemos-url`）：语义记忆 auto-ingest。run complete 后异步将 run 摘要 ingest 到 Mnemos。禁用时跳过（run complete 不 ingest）
+  - **Mnemos**（`-mnemos-url`）：语义记忆 auto-ingest。run complete 后异步将 run 摘要 ingest 到 Mnemos。**已搁置（2026-08-30）**— 不应启用。禁用时跳过（run complete 不 ingest）
 - 预算强制（默认 8h 自动停止）、同根因熔断器（3 次）、风险分级验证（R0-R3）已实现
 - 消息总线推送层（方案 B）已实现；拉取式 cursor RPC 仍是事实源和兜底
 - 无 TUI、Web UI 或生产部署
